@@ -69,8 +69,11 @@
 
   // called when a message arrives
   function onMessageArrived(message) {
-    console.log("onMessageArrived:"+message.payloadString);
-	doAction(message.payloadString);
+    console.log("onMessageArrived:"+
+	message.payloadString);
+	sensor=document.getElementById('sensor_val')
+	sensor.innerHTML=message.payloadString
+//	doAction(message.payloadString);
   }
   
     // called when a message arrives
