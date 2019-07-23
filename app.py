@@ -1,81 +1,70 @@
-#!/usr/bin/python
 
-try:
-	from BaseHTTPServer import BaseHTTPRequestHandler,HTTPServer
-except:
-	from http.server import BaseHTTPRequestHandler,HTTPServer
-from os import curdir, sep
-try:
-	from urlparse import urlparse
-	from urlparse import urlparse, parse_qs
-except:
-	from urllib.parse import urlparse, parse_qs
+import paho.mqtt.client as mqtt
+import os, urlparse
+myName='leoB'
+led_state='off'
+def publish(msg):
+	print (msg)
+	mqttc.publish(topic, msg)
+def doAction(msg):
+	global led_state
+	n,f,v=msg.split(":")
+	if n!=myName:
+		if f=='led_state':
+			#print (f,led_state)
+			if led_state== 'on':
+				led_state='off'
+			elif led_state== 'off':
+				led_state='on'
+		#print (led_state)
+		publish(myName+':led_state:'+str(led_state))
+			
+# Define event callbacks
+def on_connect(client, userdata, flags, rc):
+    print("rc: " + str(rc))
 
-import os
-port = int(os.environ.get("PORT", 5000))	
-PORT_NUMBER = port
+def on_message(client, obj, msg):
+    print(msg.topic + " " + str(msg.qos) + " " + str(msg.payload))
+#    doAction(str(msg.payload));
 
+def on_publish(client, obj, mid):
+    print("mid: " + str(mid))
 
+def on_subscribe(client, obj, mid, granted_qos):
+    print("Subscribed: " + str(mid) + " " + str(granted_qos))
 
+def on_log(client, obj, level, string):
+    print(string)
 
-class myHandler(BaseHTTPRequestHandler):
-	
-	#Handler for the GET requests
-	def do_GET(self):
-		
-		if self.path=="/":  #127.0.0.1:5000/
-			self.path="/index.html" #127.0.0.1:5000/index.html
-		
-		try:
-			#Check the file extension required and
-			#set the right mime type
+mqttc = mqtt.Client()
+# Assign event callbacks
+mqttc.on_message = on_message
+mqttc.on_connect = on_connect
+mqttc.on_publish = on_publish
+mqttc.on_subscribe = on_subscribe
 
-			sendReply = False
-			if self.path.endswith(".html"):
-				mimetype='text/html'
-				sendReply = True
-			if self.path.endswith(".jpg"):
-				mimetype='image/jpg'
-				sendReply = True
-			if self.path.endswith(".gif"):
-				mimetype='image/gif'
-				sendReply = True
-			if self.path.endswith(".js"):
-				mimetype='application/javascript'
-				sendReply = True
-			if self.path.endswith(".css"):
-				mimetype='text/css'
-				sendReply = True
-
-			if sendReply == True:
-				#Open the static file requested and send it
-				f = open(curdir + sep + self.path) 
-				self.send_response(200)
-				self.send_header('Content-type',mimetype)
-				self.end_headers()
-				data=f.read()
-				
-				try:
-					self.wfile.write(data)
-				except:
-					self.wfile.write(bytes(data, 'UTF-8'))
-				f.close()
-			return
+# Uncomment to enable debug messages
+#mqttc.on_log = on_log
 
 
-		except IOError:
-			self.send_error(404,'File Not Found: %s' % self.path)
+sensor_val=0
 
-try:
-	#Create a web server and define the handler to manage the
-	#incoming request
-	server = HTTPServer(('0.0.0.0', PORT_NUMBER), myHandler)
-	print ('Started httpserver on port ' , PORT_NUMBER)
-	
-	#Wait forever for incoming htto requests
-	server.serve_forever()
+# Connect
+mqttc.username_pw_set('vhqfqhrz', '	BE1x7LmtUF-4')
+mqttc.connect('postman.cloudmqtt.com', 11767)
+topic='/cloudmqtt'
+# Start subscribe, with QoS level 0
+mqttc.subscribe(topic, 0)
 
-except KeyboardInterrupt:
-	print ('^C received, shutting down the web server')
-	server.socket.close()
-	
+# Publish a message
+mqttc.publish(topic, myName+":led_state:"+ str(led_state))
+mqttc.publish(topic, myName+":sensor_val:"+str(sensor_val))
+# Continue the network loop, exit when an error occurs
+rc = 0
+import time
+while rc == 0:
+	time.sleep(2)
+	mqttc.publish(topic, myName+":sensor_val:"+str(sensor_val))
+	sensor_val+=1
+	rc = mqttc.loop()
+print("rc: " + str(rc))
